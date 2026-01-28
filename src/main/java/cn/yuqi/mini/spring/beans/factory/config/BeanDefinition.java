@@ -1,4 +1,4 @@
-package cn.yuqi.mini.spring.beans.factory;
+package cn.yuqi.mini.spring.beans.factory.config;
 
 public class BeanDefinition {
     private Class<?> beanClass;

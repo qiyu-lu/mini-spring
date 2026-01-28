@@ -323,3 +323,35 @@ public class DefaultListableBeanFactory
     }
 }
 ```
+
+### 优化
+![](./assets/bean-definition-and-bean-definition-registry.png)
+
+```text
+BeanDefinition
+—— Bean 的定义模型，描述“这个 Bean 是什么、该如何创建”
+
+BeanDefinitionRegistry
+—— BeanDefinition 的管理者，负责注册和获取 Bean 的定义信息
+
+SingletonBeanRegistry
+—— 单例 Bean 的缓存中心，负责存取已经创建完成的 Bean 实例
+
+BeanFactory
+—— 对外统一入口，只暴露 getBean 能力，不关心内部细节
+
+AbstractBeanFactory
+—— 定义 getBean 的统一流程模板，协调“查缓存 + 创建 Bean”
+
+AbstractAutowireCapableBeanFactory
+—— 负责 Bean 的具体创建过程，封装实例化与后续扩展点
+
+DefaultListableBeanFactory
+—— 最终可用的容器实现，整合定义管理与 Bean 创建能力
+```
+
+出现的bug：如果测试类中使用的是测试类的内部类就会发生报错，原因如下：
+
+- Bean 是一个「测试类的内部类」,HelloService 不是 public ,它的访问级别是 package-private
+- 创建 Bean 的代码在「另一个 package」,一个在 `cn.yuqi.mini.spring.beans.factory.support` ，而另一个在 `cn.yuqi.mini.spring.beans.factory`
+- 使用的是反射创建对象:beanClass.getDeclaredConstructor().newInstance();反射 必须遵守 Java 的访问控制规则。
