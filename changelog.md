@@ -332,22 +332,74 @@ BeanDefinition
 —— Bean 的定义模型，描述“这个 Bean 是什么、该如何创建”
 
 BeanDefinitionRegistry
-—— BeanDefinition 的管理者，负责注册和获取 Bean 的定义信息
+—— BeanDefinition 的管理者，负责注册和获取 Bean 的定义信息，即BeanDefinition
 
 SingletonBeanRegistry
 —— 单例 Bean 的缓存中心，负责存取已经创建完成的 Bean 实例
+
+DefaultSingletonBeanRegistry
+—— 实现 SingletonBeanRegistry ，对bean进行注册、获取。
 
 BeanFactory
 —— 对外统一入口，只暴露 getBean 能力，不关心内部细节
 
 AbstractBeanFactory
-—— 定义 getBean 的统一流程模板，协调“查缓存 + 创建 Bean”
+—— 实现 BeanFactory ，继承 DefaultSingletonBeanRegistry ，
+定义 getBean 的统一流程模板，协调“查缓存 + 创建 Bean”，但是不是完全实现， 
+getBean 的实现 需要其继承父类 DefaultSingletonBeanRegistry 所实现的对bean的注册获取查询相关方法，
+先查询 bean 单例池中是否有 对应 beanName 名字的bean，如果有，则从单例池中获取，
+这些依赖于父类DefaultSingletonBeanRegistry的相关方法的实现；
+如果没有则 需要根据 BeanDefinition 创建 Bean 实例，而这里不是在这个类中实现的，仅仅写了抽象方法，
+进行了职责分离。
+这个类只负责对于 getBean 方法中如果单例池中有的情况的逻辑的实现。
 
 AbstractAutowireCapableBeanFactory
-—— 负责 Bean 的具体创建过程，封装实例化与后续扩展点
+—— 负责 Bean 的具体创建过程，封装实例化与后续扩展点，继承 AbstractBeanFactory，
+实现了 其父类中没有实现的 根据 BeanDefinition 创建 Bean 实例 的相关逻辑，
+传入  beanName和beanDefinition进行实例化，然后将这个name和实例化后的bean存入单例池中，
+这个是它继承的AbstractBeanFactory 继承的DefaultSingletonBeanRegistry的方法，将bean进行注册
+
 
 DefaultListableBeanFactory
-—— 最终可用的容器实现，整合定义管理与 Bean 创建能力
+—— 最终可用的容器实现，整合定义管理与 Bean 创建能力，继承 AbstractAutowireCapableBeanFactory 和 
+实现 BeanDefinitionRegistry接口的注册BeanDefinition的方法，
+实现了AbstractBeanFactory的另一个用于 getBean 方法的抽象方法：getBeanDefinition，
+在 BeanDefinition 池中获取 对应的BeanDefinition，因为 BeanDefinition池在这个类中进行创建。
+```
+
+```text
+BeanDefinition
+—— Bean 的定义模型，用于描述一个 Bean 是什么，以及该如何被创建。
+
+BeanDefinitionRegistry
+—— BeanDefinition 的注册与管理中心，负责按 beanName 存取 BeanDefinition。
+
+SingletonBeanRegistry
+—— 单例 Bean 的缓存抽象，定义单例 Bean 的注册与获取能力。
+
+DefaultSingletonBeanRegistry
+—— SingletonBeanRegistry 的默认实现，维护单例池，完成单例 Bean 的实际存取。
+
+BeanFactory
+—— 容器对外的统一入口，仅暴露 getBean 能力，屏蔽内部实现细节。
+
+AbstractBeanFactory
+—— BeanFactory 的抽象实现，继承 DefaultSingletonBeanRegistry，
+定义 getBean 的标准流程：
+优先从单例池中获取 Bean；若不存在，则委托子类根据 BeanDefinition 创建 Bean。
+该类本身不关心 Bean 如何创建，只负责流程控制与职责拆分。
+
+AbstractAutowireCapableBeanFactory
+—— 负责 Bean 的具体创建过程，继承 AbstractBeanFactory，
+实现根据 BeanDefinition 实例化 Bean 的逻辑，
+并在创建完成后将 Bean 注册到单例池中。
+
+DefaultListableBeanFactory
+—— 最终可用的容器实现，
+在继承 AbstractAutowireCapableBeanFactory 的同时实现 BeanDefinitionRegistry，
+负责维护 BeanDefinition 池，
+并提供 AbstractBeanFactory 所需的 getBeanDefinition 能力，
+从而完整地打通 BeanDefinition 管理与 Bean 创建流程。
 ```
 
 出现的bug：如果测试类中使用的是测试类的内部类就会发生报错，原因如下：
@@ -355,3 +407,45 @@ DefaultListableBeanFactory
 - Bean 是一个「测试类的内部类」,HelloService 不是 public ,它的访问级别是 package-private
 - 创建 Bean 的代码在「另一个 package」,一个在 `cn.yuqi.mini.spring.beans.factory.support` ，而另一个在 `cn.yuqi.mini.spring.beans.factory`
 - 使用的是反射创建对象:beanClass.getDeclaredConstructor().newInstance();反射 必须遵守 Java 的访问控制规则。
+
+## 最简单的bean容器
+> 分支：simple-bean-container
+
+现在bean是在AbstractAutowireCapableBeanFactory.doCreateBean方法中用beanClass.newInstance()来实例化，仅适用于bean有无参构造函数的情况。
+`bean = beanClass.getDeclaredConstructor().newInstance();` getDeclaredConstructor()：只查找 参数列表为空 的构造方法,
+
+![](./assets/instantiation-strategy.png)
+
+针对bean的实例化，抽象出一个实例化策略的接口InstantiationStrategy，有两个实现类：
+- SimpleInstantiationStrategy，使用bean的构造函数来实例化
+- CglibSubclassingInstantiationStrategy，使用CGLIB动态生成子类
+
+SimpleInstantiationStrategy 中使用构造函数进行实例化，那么就需要存储构造函数的参数，需要修改BeanDefinition，添加参数
+
+### bug
+在 中 cglib 实例化会抛出异常：
+```java
+        Object cglibBean = cglibInstantiationStrategy.instantiate(beanDefinition);
+```
+原因：
+CGLIB 在干的是：
+1. 生成 HelloService 的子类字节码
+2. 加载这个子类
+3. 通过 Enhancer.create() 调用父类构造器
+
+CGLIB 实例化代码中加入 `enhancer.setCallback(NoOp.INSTANCE);` 
+
+反射实例化
+- ✔ 不生成子类
+- ✔ 直接 new
+- ❌ 无法拦截方法
+- ❌ 无法做代理 / AOP
+
+CGLIB 实例化
+- ✔ 生成子类
+- ✔ 可拦截方法（AOP 核心）
+- ❌ 构造器必须可调用
+- ❌ 不能是 final 类 / final 方法
+
+👉 CGLIB 不是为了“方便 new”存在的
+👉 它是为了“拦截方法”存在的
