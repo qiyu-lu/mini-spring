@@ -1,10 +1,9 @@
 package cn.yuqi.mini.spring.beans.factory.support;
 
-import cn.yuqi.mini.spring.beans.factory.BeansException;
+import cn.yuqi.mini.spring.beans.BeansException;
 import cn.yuqi.mini.spring.beans.factory.config.BeanDefinition;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 
 public class SimpleInstantiationStrategy implements InstantiationStrategy{

@@ -1,9 +1,13 @@
 package cn.yuqi.mini.spring.beans.factory;
 
+import cn.yuqi.mini.spring.beans.PropertyValue;
+import cn.yuqi.mini.spring.beans.PropertyValues;
 import cn.yuqi.mini.spring.beans.factory.config.BeanDefinition;
 import cn.yuqi.mini.spring.beans.factory.support.CglibSubclassingInstantiationStrategy;
 import cn.yuqi.mini.spring.beans.factory.support.DefaultListableBeanFactory;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 class BeanFactoryTest {
 
@@ -19,7 +23,8 @@ class BeanFactoryTest {
         HelloService helloService1 = (HelloService) beanFactory.getBean("无参反射的helloService");
         helloService1.sayHello();
 
-        BeanDefinition beanDefinition2 = new BeanDefinition(HelloService.class, "有参反射的构造传入的参数");
+        BeanDefinition beanDefinition2 = new BeanDefinition(HelloService.class);
+        beanDefinition2.setConstructorArgs("有参反射的构造传入的参数");
         beanFactory.registerBeanDefinition("有参反射的helloService2",beanDefinition2);
 
         HelloService helloService2 = (HelloService) beanFactory.getBean("有参反射的helloService2");
@@ -34,13 +39,30 @@ class BeanFactoryTest {
         HelloService helloService3 = (HelloService) beanFactory.getBean("无参CGLIB的helloService");
         helloService3.sayHello();
 
-        BeanDefinition beanDefinition4 = new BeanDefinition(HelloService.class, "有参CGLIB的构造传入的参数");
+        BeanDefinition beanDefinition4 = new BeanDefinition(HelloService.class);
+        beanDefinition4.setConstructorArgs("有参CGLIB的构造传入的参数");
         beanFactory.registerBeanDefinition("有参CGLIB的helloService2",beanDefinition4);
 
         HelloService helloService4 = (HelloService) beanFactory.getBean("有参CGLIB的helloService2");
         helloService4.sayHello();
     }
+    @Test
+    public void testPopulateBeanWithPropertyValues() throws Exception {
+        DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+        PropertyValues  propertyValues = new PropertyValues();
+        propertyValues.addPropertyValue(new PropertyValue("name", "小明"));
+        propertyValues.addPropertyValue(new PropertyValue("age", 18));
+        BeanDefinition beanDefinition = new BeanDefinition(Person.class);
+        beanDefinition.setPropertyValues(propertyValues);
 
+        beanFactory.registerBeanDefinition("person", beanDefinition);
+
+        Person person = (Person) beanFactory.getBean("person");
+        System.out.println(person);
+        assertThat(person.getName()).isEqualTo("小明");
+        assertThat(person.getAge()).isEqualTo(18);
+
+    }
     //此时如果使用下面这个类内定义的类进行测试会报错,需要一个顶级类
 //    static class HelloService {
 //        public String sayHello() {

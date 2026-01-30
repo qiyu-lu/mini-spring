@@ -52,7 +52,7 @@ public class SimpleBeanFactory implements BeanFactory {
 
 
 ## BeanDefinition和BeanDefinitionRegistry
-> 分支：bean-definition-and-bean-definition-registry
+> 分支：step-02-bean-definition-and-bean-definition-registry
 > **实现一个“最小可用的 IOC 容器核心”**
 
 那么现在需要实现的是：我想统一管理对象的创建，而不是到处 new，难点在于 "不要提前 new 对象，只保存‘怎么 new'"
@@ -408,8 +408,8 @@ DefaultListableBeanFactory
 - 创建 Bean 的代码在「另一个 package」,一个在 `cn.yuqi.mini.spring.beans.factory.support` ，而另一个在 `cn.yuqi.mini.spring.beans.factory`
 - 使用的是反射创建对象:beanClass.getDeclaredConstructor().newInstance();反射 必须遵守 Java 的访问控制规则。
 
-## 最简单的bean容器
-> 分支：simple-bean-container
+## Bean实例化策略InstantiationStrategy
+> 分支：step-03-instantiation-strategy
 
 现在bean是在AbstractAutowireCapableBeanFactory.doCreateBean方法中用beanClass.newInstance()来实例化，仅适用于bean有无参构造函数的情况。
 `bean = beanClass.getDeclaredConstructor().newInstance();` getDeclaredConstructor()：只查找 参数列表为空 的构造方法,
@@ -449,3 +449,69 @@ CGLIB 实例化
 
 👉 CGLIB 不是为了“方便 new”存在的
 👉 它是为了“拦截方法”存在的
+
+## 为bean填充属性
+> 分支：step-04-populate-bean-with-property-values
+
+在BeanDefinition中增加和bean属性对应的PropertyVales，实例化bean之后，为bean填充属性(AbstractAutowireCapableBeanFactory#applyPropertyValues)。
+
+PropertyValue 表示 Bean 的“一个属性的赋值描述”
+PropertyValues 表示 Bean 的“全部属性赋值描述的集合”
+
+为什么要这样设计，而不是采用map，例如 `Map<String, Object>` ，
+但这样不能自然地表达： 
+这是字段注入还是 setter 注入？
+这是字面量还是 Bean 引用？ 这个值是否需要类型转换？ 是否已完成注入？ 注入顺序是否重要？
+
+应该按这个固定顺序来实现
+1. instantiateBean   👉 调构造方法（new一个对象）
+2. populateBean      👉 setXxx / 反射字段赋值
+3. initializeBean    👉 aware / init-method
+
+测试代码
+```java
+@Test
+public void testPopulateBeanWithPropertyValues() throws Exception {
+    DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+    PropertyValues  propertyValues = new PropertyValues();
+    propertyValues.addPropertyValue(new PropertyValue("name", "小明"));
+    propertyValues.addPropertyValue(new PropertyValue("age", 18));
+    BeanDefinition beanDefinition = new BeanDefinition(Person.class);
+    beanDefinition.setPropertyValues(propertyValues);
+
+    beanFactory.registerBeanDefinition("person", beanDefinition);
+
+    Person person = (Person) beanFactory.getBean("person");
+    System.out.println(person);
+    assertThat(person.getName()).isEqualTo("小明");
+    assertThat(person.getAge()).isEqualTo(18);
+
+}
+```
+
+在 AbstractAutowireCapableBeanFactory#applyPropertyValues 中的修改代码，在实例化之后进行填充。
+```java
+@Override
+protected Object createBean(String beanName, BeanDefinition beanDefinition) throws BeansException{
+    Object bean = doCreateBean(beanName, beanDefinition);
+    applyPropertyValues(bean, beanDefinition);
+    return bean;
+}
+protected void applyPropertyValues(Object bean, BeanDefinition beanDefinition) throws BeansException{
+    PropertyValues  pvs = beanDefinition.getPropertyValues();
+    if(pvs == null) return; //无参构造或者是采用默认值，不进行填充
+
+    for(PropertyValue pv : pvs.getPropertyValueList()){
+        String name = pv.getPropertyName();
+        Object value = pv.getPropertyValue();
+
+        try{
+            Field field = bean.getClass().getDeclaredField(name);
+            field.setAccessible(true);
+            field.set(bean, value);
+        } catch (Exception e){
+            throw new BeansException("failed to set property " + name, e);
+        }
+    }
+}
+```

@@ -1,4 +1,4 @@
-package cn.yuqi.mini.spring.beans.factory;
+package cn.yuqi.mini.spring.beans;
 
 public class BeansException extends RuntimeException {
     public BeansException(String message) {

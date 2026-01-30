@@ -1,10 +1,8 @@
 package cn.yuqi.mini.spring.beans.factory.support;
 
 
-import cn.yuqi.mini.spring.beans.factory.BeanFactory;
-import cn.yuqi.mini.spring.beans.factory.BeansException;
+import cn.yuqi.mini.spring.beans.BeansException;
 import cn.yuqi.mini.spring.beans.factory.config.BeanDefinition;
-import cn.yuqi.mini.spring.beans.factory.config.SingletonBeanRegistry;
 
 import java.util.HashMap;
 import java.util.Map;

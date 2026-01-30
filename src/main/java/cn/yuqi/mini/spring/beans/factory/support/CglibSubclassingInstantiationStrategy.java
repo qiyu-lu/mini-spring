@@ -1,6 +1,6 @@
 package cn.yuqi.mini.spring.beans.factory.support;
 
-import cn.yuqi.mini.spring.beans.factory.BeansException;
+import cn.yuqi.mini.spring.beans.BeansException;
 import cn.yuqi.mini.spring.beans.factory.config.BeanDefinition;
 import net.sf.cglib.proxy.Enhancer;
 import net.sf.cglib.proxy.NoOp;
