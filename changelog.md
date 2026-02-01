@@ -540,5 +540,60 @@ new PropertyValue("car", new Car())
 
     在 Spring 里： Person depends on Car，这是元数据层面的关系，而不是“代码层面的 new”。 如果你直接 new：容器根本不知道 Person 依赖 Car
 
-### BeanReference 真正解决的“抽象问题”
 
+```java
+protected void applyPropertyValues(Object bean, BeanDefinition beanDefinition) throws BeansException{
+    PropertyValues  pvs = beanDefinition.getPropertyValues();
+    if(pvs == null) return; //无参构造或者是采用默认值，不进行填充
+
+    for(PropertyValue pv : pvs.getPropertyValueList()){
+        String name = pv.getPropertyName();
+        Object value = pv.getPropertyValue();
+
+        try{
+            if(value instanceof BeanReference){
+                value = getBean(((BeanReference) value).getBeanName());
+            }
+            Field field = bean.getClass().getDeclaredField(name);
+            field.setAccessible(true);
+            field.set(bean, value);
+        } catch (Exception e){
+            throw new BeansException("failed to set property " + name, e);
+        }
+    }
+}
+```
+测试文件
+```java
+@Test
+public void testPopulateBeanWithBean() throws Exception {
+    DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+
+    //注册Car实例
+    PropertyValues propertyValuesForCar = new PropertyValues();
+    propertyValuesForCar.addPropertyValue(new PropertyValue("brand", "porsche"));
+    BeanDefinition carBeanDefinition = new BeanDefinition(Car.class);
+    carBeanDefinition.setPropertyValues(propertyValuesForCar);
+    beanFactory.registerBeanDefinition("car", carBeanDefinition);
+
+    //注册Person实例
+    PropertyValues propertyValuesForPerson = new PropertyValues();
+    propertyValuesForPerson.addPropertyValue(new PropertyValue("name", "derek"));
+    propertyValuesForPerson.addPropertyValue(new PropertyValue("age", 18));
+    //Person实例依赖Car实例
+    propertyValuesForPerson.addPropertyValue(new PropertyValue("car", new BeanReference("car")));
+    BeanDefinition beanDefinition = new BeanDefinition(Person.class);
+    beanDefinition.setPropertyValues(propertyValuesForPerson);
+    beanFactory.registerBeanDefinition("person", beanDefinition);
+
+    Person person = (Person) beanFactory.getBean("person");
+    System.out.println(person);
+    assertThat(person.getName()).isEqualTo("derek");
+    assertThat(person.getAge()).isEqualTo(18);
+    Car car = person.getCar();
+    assertThat(car).isNotNull();
+    assertThat(car.getBrand()).isEqualTo("porsche");
+}
+```
+
+## 资源和资源加载器-代码分支 step-06-resource-and-resource-loader
