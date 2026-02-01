@@ -4,6 +4,7 @@ import cn.yuqi.mini.spring.beans.BeansException;
 import cn.yuqi.mini.spring.beans.PropertyValue;
 import cn.yuqi.mini.spring.beans.PropertyValues;
 import cn.yuqi.mini.spring.beans.factory.config.BeanDefinition;
+import cn.yuqi.mini.spring.beans.factory.config.BeanReference;
 
 import java.lang.reflect.Field;
 
@@ -34,6 +35,9 @@ public abstract class AbstractAutowireCapableBeanFactory
             Object value = pv.getPropertyValue();
 
             try{
+                if(value instanceof BeanReference){
+                    value = getBean(((BeanReference) value).getBeanName());
+                }
                 Field field = bean.getClass().getDeclaredField(name);
                 field.setAccessible(true);
                 field.set(bean, value);

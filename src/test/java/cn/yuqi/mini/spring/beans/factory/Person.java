@@ -1,8 +1,10 @@
 package cn.yuqi.mini.spring.beans.factory;
 
 public class Person {
-    String name;
-    int age;
+    private String name;
+    private int age;
+    private Car car;
+
     public String getName() {
         return name;
     }
@@ -15,5 +17,12 @@ public class Person {
     }
     public void setAge(int age) {
         this.age = age;
+    }
+
+    public Car getCar() {
+        return car;
+    }
+    public void setCar(Car car) {
+        this.car = car;
     }
 }

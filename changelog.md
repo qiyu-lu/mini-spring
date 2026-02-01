@@ -1,6 +1,5 @@
  # IOC
- ## 最简单的bean容器
- > 分支：step-01-simple-bean-container
+ ## 最简单的bean容器-代码分支：step-01-simple-bean-container
 
 定义一个简单的bean容器BeanFactory，内部包含一个map用以保存bean，只有注册bean和获取bean两个方法
 
@@ -51,8 +50,7 @@ public class SimpleBeanFactory implements BeanFactory {
 而真正的spring不直接注册对象。
 
 
-## BeanDefinition和BeanDefinitionRegistry
-> 分支：step-02-bean-definition-and-bean-definition-registry
+## BeanDefinition和BeanDefinitionRegistry-代码分支：step-02-bean-definition-and-bean-definition-registry
 > **实现一个“最小可用的 IOC 容器核心”**
 
 那么现在需要实现的是：我想统一管理对象的创建，而不是到处 new，难点在于 "不要提前 new 对象，只保存‘怎么 new'"
@@ -408,8 +406,7 @@ DefaultListableBeanFactory
 - 创建 Bean 的代码在「另一个 package」,一个在 `cn.yuqi.mini.spring.beans.factory.support` ，而另一个在 `cn.yuqi.mini.spring.beans.factory`
 - 使用的是反射创建对象:beanClass.getDeclaredConstructor().newInstance();反射 必须遵守 Java 的访问控制规则。
 
-## Bean实例化策略InstantiationStrategy
-> 分支：step-03-instantiation-strategy
+## Bean实例化策略InstantiationStrategy-代码分支：step-03-instantiation-strategy
 
 现在bean是在AbstractAutowireCapableBeanFactory.doCreateBean方法中用beanClass.newInstance()来实例化，仅适用于bean有无参构造函数的情况。
 `bean = beanClass.getDeclaredConstructor().newInstance();` getDeclaredConstructor()：只查找 参数列表为空 的构造方法,
@@ -450,8 +447,7 @@ CGLIB 实例化
 👉 CGLIB 不是为了“方便 new”存在的
 👉 它是为了“拦截方法”存在的
 
-## 为bean填充属性
-> 分支：step-04-populate-bean-with-property-values
+## 为bean填充属性-代码分支：step-04-populate-bean-with-property-values
 
 在BeanDefinition中增加和bean属性对应的PropertyVales，实例化bean之后，为bean填充属性(AbstractAutowireCapableBeanFactory#applyPropertyValues)。
 
@@ -515,3 +511,34 @@ protected void applyPropertyValues(Object bean, BeanDefinition beanDefinition) t
     }
 }
 ```
+
+## 为bean注入bean-代码分支step-05-populate-bean-with-bean
+
+增加BeanReference类，包装一个bean对另一个bean的引用。实例化beanA后填充属性时，若PropertyValue#value为BeanReference，引用beanB，则先去实例化beanB。 
+由于不想增加代码的复杂度提高理解难度，暂时不支持循环依赖，后面会在高级篇中解决该问题。
+
+在上一章 populate-bean-with-property-values 中实现的本质是： 值注入。
+但在实际代码中的对象往往会出现另一个对象，即容器里“另一个 Bean”，
+
+如果没有 BeanReference 时，会遇到的根本性困境：
+若是写：
+```java
+propertyValues.addPropertyValue(
+new PropertyValue("car", new Car())
+);
+```
+这会带来三个致命问题：
+1. 这个 Car 不受容器管理
+
+    Person.car  ≠  IOC 容器中的 car Bean ，你会得到：两个 Car 实例，生命周期完全脱钩，无法统一管理
+
+2. Bean 的定义顺序变得混乱
+
+    Person -> Car 但： Car 什么时候创建？ 谁来创建？ 创建一次还是多次？ 这样写已经失去了“容器”的控制权
+
+3. 你无法表达“依赖关系” 
+
+    在 Spring 里： Person depends on Car，这是元数据层面的关系，而不是“代码层面的 new”。 如果你直接 new：容器根本不知道 Person 依赖 Car
+
+### BeanReference 真正解决的“抽象问题”
+
