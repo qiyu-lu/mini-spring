@@ -1,0 +1,1 @@
+hello world 这是test下resources的文件hello.txt

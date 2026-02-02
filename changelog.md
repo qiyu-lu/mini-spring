@@ -597,3 +597,78 @@ public void testPopulateBeanWithBean() throws Exception {
 ```
 
 ## 资源和资源加载器-代码分支 step-06-resource-and-resource-loader
+
+Resource是资源的抽象和访问接口，简单写了三个实现类
+
+![](./assets/resource.png)
+
+- FileSystemResource，文件系统资源的实现类
+- ClassPathResource，classpath下资源的实现类
+- UrlResource，对java.net.URL进行资源定位的实现类
+
+ResourceLoader接口则是资源查找定位策略的抽象，DefaultResourceLoader是其默认实现类
+
+```java
+public class ClassPathResource implements Resource{
+
+    private final String path;
+    private final ClassLoader classLoader;
+
+    public ClassPathResource(String path) {
+        this(path, Thread.currentThread().getContextClassLoader());
+    }
+    public ClassPathResource(String path, ClassLoader classLoader) {
+        this.path = path;
+        this.classLoader = classLoader;
+    }
+
+    @Override
+    public InputStream getInputStream() {
+        InputStream is = classLoader.getResourceAsStream(path);
+        if(is == null){
+            throw new RuntimeException("Resource not found: " + path);
+        }
+        return is;
+    }
+}
+```
+```java
+public class FileSystemResource implements Resource {
+    private final String path;
+
+    public FileSystemResource(String path) {
+        this.path = path;
+    }
+
+    @Override
+    public InputStream getInputStream() {
+        try{
+            return new FileInputStream(path);
+        } catch(FileNotFoundException e){
+            throw new RuntimeException("File not found!"+ path, e);
+        }
+    }
+}
+```
+```java
+public class UrlResource implements Resource{
+
+    private final URL url;
+
+    public UrlResource(URL url){
+        this.url = url;
+    }
+
+    @Override
+    public InputStream getInputStream() {
+        try{
+            return url.openStream();
+        } catch (IOException e){
+            throw new RuntimeException("Failed to open URL: " + url, e);
+        }
+    }
+}
+```
+
+## 在xml文件中定义bean-代码分支 step-07-xml-file-define-bean
+
